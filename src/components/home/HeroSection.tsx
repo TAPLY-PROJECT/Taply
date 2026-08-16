@@ -31,7 +31,7 @@ export default function HeroSection() {
 
       <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
         <Link
-          href="/workspace"
+          href="/login"
           className="inline-flex h-[34px] items-center gap-2 rounded-[8px] bg-primary px-5 text-[13px] font-semibold !text-white shadow-[0_10px_24px_rgba(112,33,248,0.26)] transition hover:bg-primary-strong"
           style={{ color: "#ffffff" }}
         >
