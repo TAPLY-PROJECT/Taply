@@ -26,7 +26,7 @@ export default function Navbar({
   const isWorkspace = variant === "workspace";
   const isProject = variant === "project";
   const ctaLabel = actionLabel ?? (isProject ? "New Project" : "Start");
-  const ctaHref = actionHref ?? (isProject ? "/review/new" : "/workspace");
+  const ctaHref = actionHref ?? (isProject ? "/review/new" : "/login");
   const defaultIcon = isProject ? <IconPlus size={12} stroke={2.4} /> : <AssetIcon src={arrowRight} className="h-[12px] w-[12px]" />;
   const resolvedIcon = actionIcon === undefined ? defaultIcon : actionIcon;
 
