@@ -70,6 +70,15 @@ function FeedbackBadge({
   );
 }
 
+function projectSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\'\"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "untitled-project";
+}
+
 export default function ReviewSessionView({
   shareableId,
   sessionName,
@@ -93,6 +102,7 @@ export default function ReviewSessionView({
   const positiveCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "positive").length;
   const needsChangeCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "needs_change").length;
   const resolvedCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "resolved").length;
+  const projectRoute = `/review/${projectSlug(session?.projectName || projectName || "project")}?name=${encodeURIComponent(session?.projectName || projectName || "Project Name")}&description=${encodeURIComponent(session?.projectDescription || projectDescription || "")}`;
 
   const updateFeedbackStatus = async (designId: string, feedbackId: string, status: FeedbackStatus) => {
     setUpdatingFeedbackId(feedbackId);
@@ -116,7 +126,7 @@ export default function ReviewSessionView({
         <Navbar
           variant="home"
           actionLabel="New Session"
-          actionHref={`/review/${shareableId}`}
+          actionHref="/workspace"
           actionIcon={<IconPlus size={12} stroke={2.4} />}
         />
         <div className="mx-auto flex min-h-[60vh] max-w-[1240px] items-center justify-center px-4">
@@ -132,7 +142,7 @@ export default function ReviewSessionView({
         <Navbar
           variant="home"
           actionLabel="New Session"
-          actionHref={`/review/${shareableId}`}
+          actionHref="/workspace"
           actionIcon={<IconPlus size={12} stroke={2.4} />}
         />
         <div className="mx-auto flex min-h-[60vh] max-w-[1240px] items-center justify-center px-4">
@@ -150,7 +160,7 @@ export default function ReviewSessionView({
         <Navbar
           variant="home"
           actionLabel="New Session"
-          actionHref={`/review/${shareableId}`}
+          actionHref="/workspace"
           actionIcon={<IconPlus size={12} stroke={2.4} />}
         />
         <div className="mx-auto flex min-h-[60vh] max-w-[1240px] items-center justify-center px-4">
@@ -192,7 +202,7 @@ export default function ReviewSessionView({
       <Navbar
         variant="home"
         actionLabel="New Session"
-        actionHref={`/review/${shareableId}`}
+        actionHref={projectRoute}
         actionIcon={<IconPlus size={12} stroke={2.4} />}
       />
 
@@ -200,7 +210,7 @@ export default function ReviewSessionView({
         <div className="mx-auto flex h-[76px] w-full max-w-[1240px] items-center justify-between px-4 xl:px-0">
           <div className="flex items-center gap-4">
             <Link
-              href={`/review/${shareableId}`}
+              href={projectRoute}
               aria-label="Back"
               className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-[8px] text-[#111111]"
             >
