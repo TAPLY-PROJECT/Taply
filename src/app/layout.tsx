@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import appIcon from "../../public/Taply assets/app.svg";
 const sans = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -15,6 +16,9 @@ const mono = DM_Mono({
 export const metadata: Metadata = {
   title: "Taply",
   description: "Design feedback tool for fast client review sessions.",
+  icons: {
+    icon: appIcon.src,
+  },
 };
 
 export default function RootLayout({
