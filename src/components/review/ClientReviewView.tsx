@@ -18,6 +18,7 @@ import messageAdd22Icon from "../../public/Icon-assets/message-add22.svg";
 type ClientReviewViewProps = {
   shareableId: string;
   sessionName?: string;
+  designShareableIds?: string[];
 };
 
 type DraftFeedback = {
@@ -48,6 +49,7 @@ type ReviewToolState = {
 };
 
 type ToolbarTool = "cursor" | "add" | "pin" | "pen" | "comment";
+type FeedbackStatus = "positive" | "needs_change";
 
 type ReviewDesign = {
   id: string;
@@ -106,10 +108,10 @@ function makeId() {
   return globalThis.crypto?.randomUUID?.() ?? `tool-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export default function ClientReviewView({ shareableId, sessionName }: ClientReviewViewProps) {
+export default function ClientReviewView({ shareableId, sessionName, designShareableIds = [] }: ClientReviewViewProps) {
   const [designs, setDesigns] = useState<ReviewDesign[]>([]);
   const [selectedDesignIndex, setSelectedDesignIndex] = useState(0);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [feedbackByDesign, setFeedbackByDesign] = useState<Record<string, Feedback[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState(sessionName || "Session Name");
@@ -122,6 +124,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     comment: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState<FeedbackStatus>("needs_change");
   const { setValue: setToolState, value: toolState } = usePersistentState<ReviewToolState>(
     `taply-review-tools:${shareableId}`,
     { pins: [], strokes: [] },
@@ -133,6 +136,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     designs.length > 0 ? selectedDesignIndex % designs.length : 0;
   const currentDesign = designs[safeSelectedDesignIndex] ?? designs[0] ?? null;
   const currentDesignShareableId = currentDesign?.shareableId;
+  const feedback = currentDesign ? feedbackByDesign[currentDesign.id] ?? [] : [];
   const orderedFeedback = [...feedback].reverse();
 
   useEffect(() => {
@@ -154,36 +158,55 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
             })),
           );
           setSelectedDesignIndex(0);
-          setFeedback(storedSession.feedback ?? []);
+          const primaryDesignId = storedSession.designs[0]?.id;
+          if (primaryDesignId) {
+            setFeedbackByDesign((current) => ({
+              ...current,
+              [primaryDesignId]: storedSession.feedback ?? [],
+            }));
+          }
         }
 
-        const response = await fetch(`/api/designs/${encodeURIComponent(shareableId)}`);
-        const result = (await response.json()) as GetDesignResponse & { message?: string };
-
-        if (!response.ok) {
-          throw new Error(result.message || "Failed to load design");
-        }
+        const idsToLoad = Array.from(new Set([shareableId, ...designShareableIds]));
+        const results = await Promise.all(
+          idsToLoad.map(async (designShareableId) => {
+            const response = await fetch(`/api/designs/${encodeURIComponent(designShareableId)}`);
+            const result = (await response.json()) as GetDesignResponse & { message?: string };
+            if (!response.ok) {
+              throw new Error(result.message || "Failed to load design");
+            }
+            return result;
+          }),
+        );
+        const primaryResult = results.find((result) => result.design.shareableId === shareableId) ?? results[0];
 
         if (!active) {
           return;
         }
 
-        setDesigns([
-          {
-            id: result.design.id,
-            shareableId: result.design.shareableId,
-            name: result.design.shareableId,
-            uploadedAt: result.design.createdAt,
-            previewUrl: result.design.imageUrl,
-            imageUrl: result.design.imageUrl,
-          },
-        ]);
-        setFeedback(result.feedback);
+        if (!storedSession?.designs?.length) {
+          setDesigns(
+            results.map(({ design }) => ({
+              id: design.id,
+              shareableId: design.shareableId,
+              name: design.name || design.shareableId,
+              uploadedAt: design.createdAt,
+              previewUrl: design.imageUrl,
+              imageUrl: design.imageUrl,
+            })),
+          );
+        }
+        setFeedbackByDesign((current) =>
+          results.reduce(
+            (next, result) => ({ ...next, [result.design.id]: result.feedback }),
+            current,
+          ),
+        );
         updateStoredReviewSession(shareableId, (current) =>
           current
             ? {
                 ...current,
-                feedback: result.feedback,
+                feedback: primaryResult.feedback,
               }
             : current,
         );
@@ -207,7 +230,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     return () => {
       active = false;
     };
-  }, [sessionName, shareableId]);
+  }, [designShareableIds, sessionName, shareableId]);
 
   useEffect(() => {
     if (!currentDesignShareableId) {
@@ -226,11 +249,17 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         }
 
         if (active) {
-          setFeedback(result.feedback);
+          setFeedbackByDesign((current) => ({
+            ...current,
+            [currentDesign.id]: result.feedback,
+          }));
         }
       } catch {
         if (active) {
-          setFeedback([]);
+          setFeedbackByDesign((current) => ({
+            ...current,
+            [currentDesign.id]: [],
+          }));
         }
       }
     };
@@ -240,7 +269,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     return () => {
       active = false;
     };
-  }, [currentDesignShareableId]);
+  }, [currentDesign?.id, currentDesignShareableId]);
 
   const getRelativePoint = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -368,12 +397,16 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
       x: draft.x,
       y: draft.y,
       createdAt: new Date().toISOString(),
+      status: feedbackStatus,
     };
 
     setSubmitting(true);
     setError(null);
 
-    setFeedback((current) => [optimisticFeedback, ...current]);
+    setFeedbackByDesign((current) => ({
+      ...current,
+      [currentDesign.id]: [optimisticFeedback, ...(current[currentDesign.id] ?? [])],
+    }));
     updateStoredReviewSession(shareableId, (current) =>
       current
         ? {
@@ -394,6 +427,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
           comment: draft.comment.trim(),
           x: draft.x,
           y: draft.y,
+          status: feedbackStatus,
         }),
       });
 
@@ -408,11 +442,15 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         x: result.x,
         y: result.y,
         createdAt: result.createdAt,
+        status: result.status || feedbackStatus,
       };
 
-      setFeedback((current) =>
-        current.map((item) => (item.id === optimisticFeedback.id ? createdFeedback : item)),
-      );
+      setFeedbackByDesign((current) => ({
+        ...current,
+        [currentDesign.id]: (current[currentDesign.id] ?? []).map((item) =>
+          item.id === optimisticFeedback.id ? createdFeedback : item,
+        ),
+      }));
       updateStoredReviewSession(shareableId, (current) =>
         current
           ? {
@@ -760,6 +798,23 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
             <p className="mt-2 text-[12px] text-[#818181]">
               {Math.round(draft.x * 100)}% x, {Math.round(draft.y * 100)}% y
             </p>
+
+            <div className="mt-4 flex gap-2" role="group" aria-label="Feedback status">
+              <button
+                type="button"
+                onClick={() => setFeedbackStatus("positive")}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${feedbackStatus === "positive" ? "bg-[#d9eee7] text-[#16845b]" : "bg-[#f3f0f7] text-[#7f7397]"}`}
+              >
+                Positive
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedbackStatus("needs_change")}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${feedbackStatus === "needs_change" ? "bg-[#f8dfe4] text-[#b42318]" : "bg-[#f3f0f7] text-[#7f7397]"}`}
+              >
+                Needs change
+              </button>
+            </div>
 
             <textarea
               value={draft.comment}
