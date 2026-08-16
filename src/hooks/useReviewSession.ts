@@ -11,6 +11,7 @@ export type ReviewSessionData = {
   selectedDesignIds: string[];
   designs: StoredReviewDesign[];
   feedback: Feedback[];
+  feedbackByDesign: Record<string, Feedback[]>;
 };
 
 type ReviewSessionDefaults = {
@@ -44,26 +45,46 @@ export function useReviewSession(shareableId: string, defaults: ReviewSessionDef
           return;
         }
 
+        const designs = storedSession?.designs?.length
+          ? storedSession.designs
+          : [
+              {
+                id: result.design.id,
+                shareableId: result.design.shareableId,
+                name: result.design.name || result.design.shareableId,
+                uploadedAt: result.design.createdAt,
+                previewUrl: result.design.imageUrl,
+                imageUrl: result.design.imageUrl,
+              },
+            ];
+        const feedbackEntries = await Promise.all(
+          designs.map(async (design) => {
+            if (design.shareableId === result.design.shareableId) {
+              return [design.id, result.feedback] as const;
+            }
+
+            try {
+              const designResponse = await fetch(`/api/designs/${encodeURIComponent(design.shareableId)}`, {
+                cache: "no-store",
+              });
+              const designResult = (await designResponse.json()) as GetDesignResponse;
+              return [design.id, designResponse.ok ? designResult.feedback : []] as const;
+            } catch {
+              return [design.id, []] as const;
+            }
+          }),
+        );
+
+        const feedbackByDesign = Object.fromEntries(feedbackEntries);
         const fallbackSession: ReviewSessionData = {
           shareableId,
           sessionName: defaults.sessionName || storedSession?.sessionName || "Client Review - round 1",
           projectName: defaults.projectName || storedSession?.projectName || "Project name",
           projectDescription: defaults.projectDescription || storedSession?.projectDescription || "",
           selectedDesignIds: storedSession?.selectedDesignIds || [result.design.id],
-          designs:
-            storedSession?.designs?.length
-              ? storedSession.designs
-              : [
-                  {
-                    id: result.design.id,
-                    shareableId: result.design.shareableId,
-                    name: result.design.shareableId,
-                    uploadedAt: result.design.createdAt,
-                    previewUrl: result.design.imageUrl,
-                    imageUrl: result.design.imageUrl,
-                  },
-          ],
+          designs,
           feedback: result.feedback,
+          feedbackByDesign,
         };
 
         if (active) {
@@ -71,7 +92,16 @@ export function useReviewSession(shareableId: string, defaults: ReviewSessionDef
         }
       } catch {
         if (active) {
-          setSession(storedSession);
+          setSession(
+            storedSession
+              ? {
+                  ...storedSession,
+                  feedbackByDesign: {
+                    [storedSession.designs[0]?.id || shareableId]: storedSession.feedback,
+                  },
+                }
+              : null,
+          );
         }
       } finally {
         if (active) {
@@ -98,8 +128,9 @@ export function useReviewSession(shareableId: string, defaults: ReviewSessionDef
     }
 
     const title = session?.sessionName ?? defaults.sessionName ?? "Session Name";
-    return `${window.location.origin}/review/${shareableId}?view=client&sessionName=${encodeURIComponent(title)}`;
-  }, [defaults.sessionName, session?.sessionName, shareableId]);
+    const designIds = session?.designs.map((design) => design.shareableId).join(",") || shareableId;
+    return `${window.location.origin}/review/${shareableId}?view=client&sessionName=${encodeURIComponent(title)}&designs=${encodeURIComponent(designIds)}`;
+  }, [defaults.sessionName, session?.designs, session?.sessionName, shareableId]);
 
   const handleCopy = async () => {
     try {
