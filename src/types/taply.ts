@@ -19,7 +19,10 @@ export interface Feedback {
   x: number;
   y: number;
   createdAt: string;
+  status?: FeedbackStatus;
 }
+
+export type FeedbackStatus = "positive" | "needs_change" | "resolved";
 
 // API response formats
 // Frontend developers use these interfaces to handle API responses.
@@ -43,6 +46,7 @@ export interface CreateFeedbackResponse {
   x: number;
   y: number;
   createdAt: string;
+  status: FeedbackStatus;
 }
 
 export type ApiErrorCode =
