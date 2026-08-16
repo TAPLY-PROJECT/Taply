@@ -77,7 +77,7 @@ function ToolButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-[56px] items-center justify-center gap-1 rounded-[14px] px-4 transition ${
+      className={`inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-[14px] px-2 transition sm:h-[56px] sm:px-4 ${
         active ? "bg-[#efe7ff] text-[#6f2cf6]" : "text-[#6f2cf6] hover:bg-[#f3edff]"
       }`}
       aria-label={label}
@@ -662,7 +662,7 @@ export default function ClientReviewView({ shareableId, sessionName, designShare
 
               <div
                 data-toolbar-root="true"
-                className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-[14px] bg-[#f2ebff] px-5 py-4 shadow-[0_12px_24px_rgba(24,18,47,0.14)]"
+                  className="absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-16px)] -translate-x-1/2 flex-nowrap items-center gap-1 overflow-x-auto rounded-[14px] bg-[#f2ebff] px-2 py-2 shadow-[0_12px_24px_rgba(24,18,47,0.14)] sm:bottom-5 sm:gap-2 sm:px-5 sm:py-4"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
