@@ -9,6 +9,7 @@ type ReviewShareablePageProps = {
     name?: string | string[];
     description?: string | string[];
     sessionName?: string | string[];
+    designs?: string | string[];
   }>;
 };
 
@@ -22,6 +23,7 @@ export default async function ReviewShareablePage({ params, searchParams }: Revi
   const projectName = firstValue(query.name) || "Project Name";
   const projectDescription = firstValue(query.description) || "Descriptions...";
   const sessionName = firstValue(query.sessionName);
+  const designShareableIds = firstValue(query.designs)?.split(",").filter(Boolean);
 
   if (view === "session") {
     return (
@@ -35,7 +37,13 @@ export default async function ReviewShareablePage({ params, searchParams }: Revi
   }
 
   if (view === "client") {
-    return <ClientReviewView shareableId={resolvedParams.shareableId} sessionName={sessionName || undefined} />;
+    return (
+      <ClientReviewView
+        shareableId={resolvedParams.shareableId}
+        sessionName={sessionName || undefined}
+        designShareableIds={designShareableIds}
+      />
+    );
   }
 
   return (
