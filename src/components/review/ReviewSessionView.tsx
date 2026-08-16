@@ -47,15 +47,17 @@ function FeedbackBadge({
   index,
   x,
   y,
+  status,
 }: {
   index: number;
   x: number;
   y: number;
+  status: FeedbackStatus;
 }) {
   return (
     <button
       type="button"
-      className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-[#6f2cf6] text-[12px] font-semibold text-white shadow-[0_10px_18px_rgba(111,44,246,0.28)]"
+      className={`absolute flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-semibold text-white shadow-[0_10px_18px_rgba(111,44,246,0.28)] ${status === "positive" ? "bg-[#16845b]" : status === "resolved" ? "bg-[#6b7280]" : "bg-[#b42318]"}`}
       style={{
         left: `${x * 100}%`,
         top: `${y * 100}%`,
@@ -267,6 +269,7 @@ export default function ReviewSessionView({
                           index={index}
                           x={feedback.x}
                           y={feedback.y}
+                          status={getFeedbackStatus(feedback.status, feedback.id)}
                         />
                     ))}
                 </div>
