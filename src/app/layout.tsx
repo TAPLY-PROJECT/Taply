@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import appIcon from "../../public/Taply assets/app.svg";
+import appIcon from "../public/Taply assets/logotype.svg";
 const sans = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
