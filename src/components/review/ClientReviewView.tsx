@@ -265,9 +265,13 @@ export default function ClientReviewView({ shareableId, sessionName, designShare
     };
 
     void loadFeedback();
+    const refreshInterval = window.setInterval(() => {
+      void loadFeedback();
+    }, 4000);
 
     return () => {
       active = false;
+      window.clearInterval(refreshInterval);
     };
   }, [currentDesign?.id, currentDesignShareableId]);
 
@@ -646,7 +650,10 @@ export default function ClientReviewView({ shareableId, sessionName, designShare
                         top: `calc(${percent(item.y)} - 12px)`,
                       }}
                     >
-                      <div className="text-[12px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div>
+                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[#6f2cf6]">
+                        Comment {index + 1}
+                        <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{item.status || "needs_change"}</span>
+                      </div>
                       <p className="mt-1 text-[13px] leading-5 text-[#1a1722]">{item.comment}</p>
                     </div>
                   ) : null}
@@ -755,7 +762,10 @@ export default function ClientReviewView({ shareableId, sessionName, designShare
                   className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3"
                 >
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div>
+                    <div className="flex items-center gap-2 text-[13px] font-semibold text-[#6f2cf6]">
+                      Comment {index + 1}
+                      <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{item.status || "needs_change"}</span>
+                    </div>
                     <p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{item.comment}</p>
                   </div>
                   <div className="shrink-0 text-right text-[11px] text-[#827896]">
