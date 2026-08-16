@@ -1,4 +1,5 @@
 import type { Feedback } from "@/types/taply";
+import { TAPLY_STORAGE_EVENT } from "@/hooks/usePersistentState";
 
 export type StoredReviewDesign = {
   id: string;
@@ -85,6 +86,7 @@ export function writeStoredReviewSession(session: StoredReviewSession) {
       feedback: session.feedback ?? [],
     }),
   );
+  window.dispatchEvent(new Event(TAPLY_STORAGE_EVENT));
 }
 
 export function updateStoredReviewSession(
