@@ -300,7 +300,23 @@ export default function ReviewSessionView({
                     <div className="mt-4 grid gap-3">
                       {orderedDesignFeedback.map((itemFeedback, index) => (
                         <article key={itemFeedback.id} className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3">
-                          <div className="min-w-0"><div className="text-[13px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div><p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{itemFeedback.comment}</p></div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-[13px] font-semibold text-[#6f2cf6]">
+                              Comment {index + 1}
+                              <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{getFeedbackStatus(itemFeedback.status, itemFeedback.id)}</span>
+                            </div>
+                            <p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{itemFeedback.comment}</p>
+                          </div>
+                          {getFeedbackStatus(itemFeedback.status, itemFeedback.id) !== "resolved" ? (
+                            <button
+                              type="button"
+                              disabled={updatingFeedbackId === itemFeedback.id}
+                              onClick={() => void updateFeedbackStatus(item.id, itemFeedback.id, "resolved")}
+                              className="shrink-0 rounded-full bg-[#d9eee7] px-3 py-1.5 text-[11px] font-medium text-[#16845b] disabled:opacity-50"
+                            >
+                              {updatingFeedbackId === itemFeedback.id ? "Saving..." : "Mark resolved"}
+                            </button>
+                          ) : null}
                           <div className="shrink-0 text-right text-[11px] text-[#827896]"><div>{Math.round(itemFeedback.x * 100)}% x</div><div>{Math.round(itemFeedback.y * 100)}% y</div></div>
                         </article>
                       ))}
@@ -329,7 +345,10 @@ export default function ReviewSessionView({
                   className="flex items-start justify-between gap-4 rounded-[16px] border border-[#e3d6ff] bg-[#faf7ff] px-5 py-4 shadow-[0_8px_20px_rgba(26,15,54,0.06)]"
                 >
                   <div className="min-w-0">
-                    <div className="text-[14px] font-medium text-[#111111]">Feedback {index + 1}</div>
+                    <div className="flex items-center gap-2 text-[14px] font-medium text-[#111111]">
+                      Feedback {index + 1}
+                      <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{getFeedbackStatus(feedback.status, feedback.id)}</span>
+                    </div>
                     <p className="mt-1 text-[13px] leading-6 text-[#4d4d58]">{feedback.comment}</p>
                   </div>
                   <div className="shrink-0 text-right text-[12px] text-[#7b6f9b]">
