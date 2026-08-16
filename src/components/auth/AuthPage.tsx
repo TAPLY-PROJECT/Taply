@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { signIn, signUp, sendPasswordReset } from "@/lib/firebase-client";
 import AssetIcon from "@/components/shared/AssetIcon";
 import logoType from "../../public/Taply assets/logotype.svg";
+import eyeIcon from "../../public/auth/eye.svg";
 import registerIllustration from "../../public/auth/undraw_out-of-office_sae8 1.svg";
 import loginIllustration from "../../public/auth/undraw_login_weas 1.svg";
 
@@ -19,10 +20,21 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (passwordInputRef.current) {
+      passwordInputRef.current.type = showPassword ? "text" : "password";
+    }
+    if (confirmPasswordInputRef.current) {
+      confirmPasswordInputRef.current.type = showConfirm ? "text" : "password";
+    }
+  }, [showConfirm, showPassword]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -64,9 +76,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               {forgotMode ? "Reset password" : isRegister ? "Create account" : "Welcome back!"}
             </h1>
 
-            <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} method="post" autoComplete="off" className="space-y-6">
               <input
                 type="email"
+                name="auth-email"
+                autoComplete="off"
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -78,7 +92,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                 <>
                   <div className="relative">
                     <input
+                      ref={passwordInputRef}
                       type={showPassword ? "text" : "password"}
+                      name="auth-password"
+                      autoComplete={isRegister ? "new-password" : "off"}
                       required
                       minLength={6}
                       value={password}
@@ -86,12 +103,31 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                       placeholder={isRegister ? "Create password" : "Enter your password"}
                       className="h-12 w-full rounded-[10px] border border-[#d7d7d7] px-3 pr-12 text-[16px] outline-none placeholder:text-[#b8bfcd] focus:border-[#7021f8] focus:ring-2 focus:ring-[#7021f8]/10"
                     />
-                    <button type="button" aria-label="Show password" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8190a5]">◉</button>
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      title={showPassword ? "Hide password" : "Show password"}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        const nextVisible = !showPassword;
+                        setShowPassword(nextVisible);
+                        if (passwordInputRef.current) {
+                          passwordInputRef.current.type = nextVisible ? "text" : "password";
+                        }
+                      }}
+                      className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center"
+                    >
+                      <AssetIcon src={eyeIcon} className="pointer-events-none h-5 w-5" />
+                    </button>
                   </div>
                   {isRegister ? (
                     <div className="relative">
                       <input
+                        ref={confirmPasswordInputRef}
                         type={showConfirm ? "text" : "password"}
+                        name="auth-confirm-password"
+                        autoComplete="new-password"
                         required
                         minLength={6}
                         value={confirmPassword}
@@ -99,7 +135,23 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                         placeholder="Confirm password"
                         className="h-12 w-full rounded-[10px] border border-[#d7d7d7] px-3 pr-12 text-[16px] outline-none placeholder:text-[#b8bfcd] focus:border-[#7021f8] focus:ring-2 focus:ring-[#7021f8]/10"
                       />
-                      <button type="button" aria-label="Show confirm password" onClick={() => setShowConfirm((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8190a5]">◉</button>
+                      <button
+                        type="button"
+                        aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                        aria-pressed={showConfirm}
+                        title={showConfirm ? "Hide password" : "Show password"}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          const nextVisible = !showConfirm;
+                          setShowConfirm(nextVisible);
+                          if (confirmPasswordInputRef.current) {
+                            confirmPasswordInputRef.current.type = nextVisible ? "text" : "password";
+                          }
+                        }}
+                        className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center"
+                      >
+                        <AssetIcon src={eyeIcon} className="pointer-events-none h-5 w-5" />
+                      </button>
                     </div>
                   ) : null}
                 </>
