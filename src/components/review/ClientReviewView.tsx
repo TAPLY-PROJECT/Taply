@@ -143,10 +143,6 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         const storedSession = readStoredReviewSession(shareableId);
 
         if (storedSession?.designs?.length) {
-          if (!active) {
-            return;
-          }
-
           setDesigns(
             storedSession.designs.map((item) => ({
               id: item.id,
@@ -159,11 +155,6 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
           );
           setSelectedDesignIndex(0);
           setFeedback(storedSession.feedback ?? []);
-
-          if (sessionName) {
-            setSessionTitle(sessionName);
-          }
-          return;
         }
 
         const response = await fetch(`/api/designs/${encodeURIComponent(shareableId)}`);
