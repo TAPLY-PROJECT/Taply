@@ -13,6 +13,11 @@ type DevTokenResponse =
     };
 
 export async function getDevIdToken(): Promise<string> {
+  const storedIdToken = getStoredIdToken();
+  if (storedIdToken) {
+    return storedIdToken;
+  }
+
   if (process.env.NODE_ENV === "production") {
     throw new Error("Please login with Firebase Auth.");
   }
@@ -44,3 +49,4 @@ export async function getDevIdToken(): Promise<string> {
 
   return result.idToken;
 }
+import { getStoredIdToken } from "@/lib/firebase-client";
