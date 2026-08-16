@@ -19,7 +19,7 @@ export default function CtaSection() {
         </p>
 
         <Link
-          href="/workspace"
+          href="/login"
           className="mt-8 inline-flex h-[34px] items-center gap-2 rounded-[8px] bg-primary px-6 text-[13px] font-semibold text-white"
           style={{ color: "#ffffff" }}
         >
