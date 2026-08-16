@@ -250,7 +250,7 @@ export default function ReviewSessionView({
             </button>
           </div>
 
-          <div className="mt-5 rounded-[12px] bg-[#b787ff] px-6 py-4 text-[14px] text-white/90">
+          <div className="mt-5 min-w-0 max-w-full overflow-hidden rounded-[12px] bg-[#b787ff] px-4 py-4 text-[13px] leading-6 text-white/90 break-all sm:px-6 sm:text-[14px]">
             {shareUrl}
           </div>
         </section>
