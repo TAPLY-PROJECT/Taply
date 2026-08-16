@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { IconChevronLeft, IconCopy, IconPlus } from "@tabler/icons-react";
 import Navbar from "@/components/layout/Navbar";
 import AssetIcon from "@/components/shared/AssetIcon";
 import { useReviewSession } from "@/hooks/useReviewSession";
+import { getDevIdToken } from "@/lib/dev-auth";
+import type { FeedbackStatus } from "@/types/taply";
 import messages3Icon from "../../public/Icon-assets/messages-3.svg";
 import likeIcon from "../../public/Icon-assets/like.svg";
 import dangerIcon from "../../public/Icon-assets/danger.svg";
@@ -77,9 +79,34 @@ export default function ReviewSessionView({
     projectName,
     projectDescription,
   });
-  const feedbackItems = session?.feedback ?? [];
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, FeedbackStatus>>({});
+  const [updatingFeedbackId, setUpdatingFeedbackId] = useState<string | null>(null);
+  const getFeedbackStatus = (status?: FeedbackStatus, id?: string): FeedbackStatus =>
+    (id && statusOverrides[id]) || status || "needs_change";
+  const feedbackItems = session
+    ? session.designs.flatMap((item) => session.feedbackByDesign?.[item.id] ?? (item.id === session.designs[0]?.id ? session.feedback : []))
+    : [];
   const orderedFeedbackItems = [...feedbackItems].reverse();
   const totalFeedback = String(feedbackItems.length);
+  const positiveCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "positive").length;
+  const needsChangeCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "needs_change").length;
+  const resolvedCount = feedbackItems.filter((item) => getFeedbackStatus(item.status, item.id) === "resolved").length;
+
+  const updateFeedbackStatus = async (designId: string, feedbackId: string, status: FeedbackStatus) => {
+    setUpdatingFeedbackId(feedbackId);
+    try {
+      const token = await getDevIdToken();
+      const response = await fetch(`/api/feedback/${encodeURIComponent(feedbackId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ designId, status }),
+      });
+      if (!response.ok) throw new Error("Failed to update feedback status");
+      setStatusOverrides((current) => ({ ...current, [feedbackId]: status }));
+    } finally {
+      setUpdatingFeedbackId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -140,19 +167,19 @@ export default function ReviewSessionView({
     },
     {
       title: "Positive",
-      value: "0",
+      value: String(positiveCount),
       icon: <AssetIcon src={likeIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#dbe7ff]",
     },
     {
       title: "Needs Change",
-      value: "0",
+      value: String(needsChangeCount),
       icon: <AssetIcon src={dangerIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#f8dfe4]",
     },
     {
       title: "Resolved",
-      value: "0",
+      value: String(resolvedCount),
       icon: <AssetIcon src={tickCircleIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#d9eee7]",
     },
@@ -234,16 +261,14 @@ export default function ReviewSessionView({
                 <div className="relative h-[232px] overflow-hidden bg-[#f7f2ff]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.previewUrl} alt={item.name} className="h-full w-full object-cover" />
-                  {designIndex === 0
-                    ? feedbackItems.map((feedback, index) => (
+                  {(session.feedbackByDesign?.[item.id] ?? (designIndex === 0 ? session.feedback : [])).map((feedback, index) => (
                         <FeedbackBadge
                           key={feedback.id}
                           index={index}
                           x={feedback.x}
                           y={feedback.y}
                         />
-                      ))
-                    : null}
+                    ))}
                 </div>
                 <div className="px-4 py-4">
                   <h3 className="truncate text-[16px] font-semibold text-[#121212]">{item.name}</h3>
@@ -256,55 +281,31 @@ export default function ReviewSessionView({
 
         <section className="mt-14">
           <h2 className="text-[22px] font-medium text-[#111111]">Design Feedback</h2>
-
-          <div className="mt-5 rounded-[16px] border border-[#e3d6ff] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(26,15,54,0.06)]">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-              <div className="w-full max-w-[392px] overflow-hidden rounded-[13px] border border-[#ece6f7] bg-white">
-                <div className="relative h-[232px] overflow-hidden bg-[#f7f2ff]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={design.previewUrl} alt={design.name} className="h-full w-full object-cover" />
-                </div>
-                <div className="px-4 py-4">
-                  <h3 className="truncate text-[16px] font-semibold text-[#121212]">{design.name}</h3>
-                  <p className="mt-1 text-[12px] text-[#8a8494]">Uploaded {design.uploadedAt}</p>
-                </div>
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="text-[18px] font-semibold text-[#111111]">Feedback list</h3>
-                  <span className="text-[13px] text-[#7f7397]">
-                    {orderedFeedbackItems.length} item{orderedFeedbackItems.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-
-                {orderedFeedbackItems.length === 0 ? (
-                  <p className="mt-4 text-[13px] text-[#7f7397]">
-                    No feedback has been submitted for this design yet.
-                  </p>
-                ) : (
-                  <div className="mt-4 grid gap-3">
-                    {orderedFeedbackItems.map((item, index) => (
-                      <article
-                        key={item.id}
-                        className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-semibold text-[#6f2cf6]">
-                            Comment {index + 1}
-                          </div>
-                          <p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{item.comment}</p>
-                        </div>
-                        <div className="shrink-0 text-right text-[11px] text-[#827896]">
-                          <div>{Math.round(item.x * 100)}% x</div>
-                          <div>{Math.round(item.y * 100)}% y</div>
-                        </div>
-                      </article>
-                    ))}
+          <div className="mt-5 grid gap-5">
+            {session.designs.map((item) => {
+              const designFeedback = session.feedbackByDesign?.[item.id] ?? (item.id === design.id ? session.feedback : []);
+              const orderedDesignFeedback = [...designFeedback].reverse();
+              return (
+                <article key={item.id} className="rounded-[16px] border border-[#e3d6ff] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(26,15,54,0.06)]">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="truncate text-[18px] font-semibold text-[#111111]">{item.name}</h3>
+                    <span className="text-[13px] text-[#7f7397]">{designFeedback.length} item{designFeedback.length === 1 ? "" : "s"}</span>
                   </div>
-                )}
-              </div>
-            </div>
+                  {orderedDesignFeedback.length === 0 ? (
+                    <p className="mt-4 text-[13px] text-[#7f7397]">No feedback has been submitted for this design yet.</p>
+                  ) : (
+                    <div className="mt-4 grid gap-3">
+                      {orderedDesignFeedback.map((itemFeedback, index) => (
+                        <article key={itemFeedback.id} className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3">
+                          <div className="min-w-0"><div className="text-[13px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div><p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{itemFeedback.comment}</p></div>
+                          <div className="shrink-0 text-right text-[11px] text-[#827896]"><div>{Math.round(itemFeedback.x * 100)}% x</div><div>{Math.round(itemFeedback.y * 100)}% y</div></div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
 
