@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import AssetIcon from "@/components/shared/AssetIcon";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { readStoredReviewSession, updateStoredReviewSession } from "@/lib/review-session-storage";
+import type { StoredReviewDesign } from "@/lib/review-session-storage";
 import type { Feedback, GetDesignResponse } from "@/types/taply";
 import cursorIcon from "../../public/Icon-assets/cursor.svg";
 import arrowDownIcon from "../../public/Icon-assets/arrow-down.svg";
@@ -50,15 +51,6 @@ type ReviewToolState = {
 
 type ToolbarTool = "cursor" | "add" | "pin" | "pen" | "comment";
 type FeedbackStatus = "positive" | "needs_change";
-
-type ReviewDesign = {
-  id: string;
-  shareableId: string;
-  name: string;
-  uploadedAt: string;
-  previewUrl: string;
-  imageUrl: string;
-};
 
 function ToolButton({
   icon,

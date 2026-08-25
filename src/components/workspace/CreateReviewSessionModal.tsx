@@ -1,15 +1,11 @@
 "use client";
 
-type DesignItem = {
-  id: string;
-  name: string;
-  previewUrl: string;
-};
+import type { StoredReviewDesign } from "@/lib/review-session-storage";
 
 type CreateReviewSessionModalProps = {
   open: boolean;
   onClose: () => void;
-  designs: DesignItem[];
+  designs: StoredReviewDesign[];
   sessionName: string;
   selectedDesignIds: string[];
   onSessionNameChange: (value: string) => void;
@@ -30,7 +26,7 @@ function SessionDesignCard({
   selected,
   onToggle,
 }: {
-  design: DesignItem;
+  design: StoredReviewDesign;
   selected: boolean;
   onToggle: () => void;
 }) {

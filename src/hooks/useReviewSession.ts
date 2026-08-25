@@ -82,7 +82,19 @@ export function useReviewSession(shareableId: string, defaults: ReviewSessionDef
           projectName: defaults.projectName || storedSession?.projectName || "Project name",
           projectDescription: defaults.projectDescription || storedSession?.projectDescription || "",
           selectedDesignIds: storedSession?.selectedDesignIds || [result.design.id],
-          designs,
+          designs:
+            storedSession?.designs?.length
+              ? storedSession.designs
+              : [
+                  {
+                    id: result.design.id,
+                    shareableId: result.design.shareableId,
+                    name: result.design.name,
+                    uploadedAt: result.design.createdAt,
+                    previewUrl: result.design.imageUrl,
+                    imageUrl: result.design.imageUrl,
+                  },
+          ],
           feedback: result.feedback,
           feedbackByDesign,
         };

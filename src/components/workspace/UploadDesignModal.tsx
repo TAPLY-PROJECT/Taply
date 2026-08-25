@@ -8,6 +8,8 @@ type UploadDesignModalProps = {
   onUpload: (payload: { name: string; file: File }) => void | Promise<void>;
 };
 
+type UploadState = "idle" | "uploading" | "success" | "error";
+
 function UploadArrowIcon() {
   return (
     <svg viewBox="0 0 48 48" fill="none" className="h-[64px] w-[64px]" aria-hidden="true">
@@ -29,6 +31,20 @@ function UploadArrowIcon() {
   );
 }
 
+function UploadSuccessIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8" aria-hidden="true">
+      <path
+        d="M20 6 9 17l-5-5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function stripExtension(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "");
 }
@@ -38,43 +54,51 @@ export default function UploadDesignModal({ open, onClose, onUpload }: UploadDes
   const [designName, setDesignName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [error, setError] = useState<string | null>(null);
 
   if (!open) {
     return null;
   }
 
+  const isSubmitting = uploadState === "uploading";
+  const hasSucceeded = uploadState === "success";
+
   const openFilePicker = () => {
-    fileInputRef.current?.click();
+    if (!isSubmitting && !hasSucceeded) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleFile = (file: File | null | undefined) => {
-    if (!file) {
+    if (!file || isSubmitting || hasSucceeded) {
       return;
     }
 
     if (!file.type.startsWith("image/")) {
+      setUploadState("error");
       setError("Please select an image file.");
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
+      setUploadState("error");
       setError("Please choose an image smaller than 10MB.");
       return;
     }
 
     setError(null);
+    setUploadState("idle");
     setSelectedFile(file);
     setDesignName((current) => current || stripExtension(file.name));
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile || isSubmitting) {
+    if (!selectedFile || isSubmitting || hasSucceeded) {
       return;
     }
 
-    setIsSubmitting(true);
+    setUploadState("uploading");
     setError(null);
 
     try {
@@ -82,15 +106,14 @@ export default function UploadDesignModal({ open, onClose, onUpload }: UploadDes
         name: designName.trim() || stripExtension(selectedFile.name),
         file: selectedFile,
       });
-      onClose();
+      setUploadState("success");
     } catch (uploadError) {
+      setUploadState("error");
       setError(
         uploadError instanceof Error
           ? uploadError.message
           : "Upload failed. Please try again.",
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -98,7 +121,7 @@ export default function UploadDesignModal({ open, onClose, onUpload }: UploadDes
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(45,43,58,0.46)] px-4"
       role="presentation"
-      onClick={onClose}
+      onClick={isSubmitting ? undefined : onClose}
     >
       <div
         role="dialog"
@@ -119,9 +142,16 @@ export default function UploadDesignModal({ open, onClose, onUpload }: UploadDes
             <input
               type="text"
               value={designName}
-              onChange={(event) => setDesignName(event.target.value)}
+              onChange={(event) => {
+                setDesignName(event.target.value);
+                if (uploadState === "error") {
+                  setError(null);
+                  setUploadState("idle");
+                }
+              }}
               placeholder="Home Page v1.0"
-              className="h-[63px] w-full rounded-[13px] border border-[#d8c5ff] bg-[#f8f4ff] px-4 text-[15px] text-[#1a1722] outline-none placeholder:text-[#9a94a7] focus:border-[#b997ff]"
+              disabled={isSubmitting || hasSucceeded}
+              className="h-[63px] w-full rounded-[13px] border border-[#d8c5ff] bg-[#f8f4ff] px-4 text-[15px] text-[#1a1722] outline-none placeholder:text-[#9a94a7] focus:border-[#b997ff] disabled:cursor-not-allowed disabled:opacity-70"
             />
           </label>
 
@@ -147,39 +177,74 @@ export default function UploadDesignModal({ open, onClose, onUpload }: UploadDes
               setIsDragging(false);
               handleFile(event.dataTransfer.files?.[0]);
             }}
+            disabled={isSubmitting || hasSucceeded}
             className={`mt-6 flex h-[209px] w-full flex-col items-center justify-center rounded-[13px] border-[2px] border-dashed bg-[#faf8ff] text-center transition ${
               isDragging ? "border-[#7c43ff] bg-[#f4edff]" : "border-[#d8c5ff]"
-            }`}
+            } ${isSubmitting || hasSucceeded ? "cursor-default opacity-95" : ""}`}
           >
-            <UploadArrowIcon />
-            <div className="mt-6 text-[16px] font-medium text-[#121212]">
-              Click to upload or drag and drop
-            </div>
-            <div className="mt-1 text-[11px] text-[#818181]">PNG, JPG or SVG (max 10MB)</div>
-            {selectedFile ? (
-              <div className="mt-3 rounded-full bg-white px-3 py-1 text-[11px] text-[#6f6b78] shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-                Selected: {selectedFile.name}
+            {hasSucceeded ? (
+              <div className="flex flex-col items-center">
+                <div className="flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#e9f9ef] text-[#0f9d58]">
+                  <UploadSuccessIcon />
+                </div>
+                <div className="mt-5 text-[16px] font-medium text-[#121212]">Upload complete</div>
+                <div className="mt-1 text-[11px] text-[#818181]">Your design has been saved successfully.</div>
               </div>
-            ) : null}
+            ) : isSubmitting ? (
+              <div className="flex w-full max-w-[320px] flex-col items-center">
+                <div className="flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#f4edff] text-[#7a2bf8]">
+                  <UploadArrowIcon />
+                </div>
+                <div className="mt-5 text-[16px] font-medium text-[#121212]">Uploading design...</div>
+                <div className="mt-2 w-full">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#ece3ff]">
+                    <div className="h-full w-1/2 animate-pulse rounded-full bg-[linear-gradient(90deg,#7a2bf8_0%,#b58cff_100%)]" />
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    <div className="h-3 w-2/3 animate-pulse rounded-full bg-[#ece3ff]" />
+                    <div className="h-3 w-1/2 animate-pulse rounded-full bg-[#ece3ff]" />
+                    <div className="h-3 w-5/6 animate-pulse rounded-full bg-[#ece3ff]" />
+                  </div>
+                </div>
+                <div className="mt-3 text-[11px] text-[#818181]">Please keep this window open until the upload finishes.</div>
+              </div>
+            ) : (
+              <>
+                <UploadArrowIcon />
+                <div className="mt-6 text-[16px] font-medium text-[#121212]">
+                  Click to upload or drag and drop
+                </div>
+                <div className="mt-1 text-[11px] text-[#818181]">PNG, JPG or SVG (max 10MB)</div>
+                {selectedFile ? (
+                  <div className="mt-3 rounded-full bg-white px-3 py-1 text-[11px] text-[#6f6b78] shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+                    Selected: {selectedFile.name}
+                  </div>
+                ) : null}
+              </>
+            )}
           </button>
 
-          {error ? <p className="mt-3 text-[12px] text-[#d92d20]">{error}</p> : null}
+          <div aria-live="polite" className="mt-3 min-h-5">
+            {error ? <p className="text-[12px] text-[#d92d20]">{error}</p> : null}
+            {hasSucceeded ? <p className="text-[12px] text-[#0f9d58]">Upload completed successfully.</p> : null}
+          </div>
 
           <div className="mt-10 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="h-[49px] rounded-[11px] border border-[#e3dfe8] bg-white text-[21px] font-medium text-[#6f6b78] shadow-[0_1px_0_rgba(0,0,0,0.03)]"
+              disabled={isSubmitting}
+              className="h-[49px] rounded-[11px] border border-[#e3dfe8] bg-white text-[21px] font-medium text-[#6f6b78] shadow-[0_1px_0_rgba(0,0,0,0.03)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Cancel
+              {hasSucceeded ? "Done" : "Cancel"}
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!selectedFile || isSubmitting}
+              disabled={!selectedFile || isSubmitting || hasSucceeded}
               className="h-[49px] rounded-[11px] bg-[linear-gradient(180deg,#7d2df8_0%,#6c20f4_100%)] text-[21px] font-medium text-white shadow-[0_14px_24px_rgba(112,33,248,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Uploading..." : "Upload"}
+              {isSubmitting ? "Uploading..." : error ? "Retry Upload" : "Upload"}
             </button>
           </div>
         </div>

@@ -1,13 +1,8 @@
-import type { Feedback } from "@/types/taply";
-import { TAPLY_STORAGE_EVENT } from "@/hooks/usePersistentState";
+import type { Design, Feedback } from "@/types/taply";
 
-export type StoredReviewDesign = {
-  id: string;
-  shareableId: string;
-  name: string;
+export type StoredReviewDesign = Pick<Design, "id" | "shareableId" | "name" | "imageUrl"> & {
   uploadedAt: string;
   previewUrl: string;
-  imageUrl: string;
 };
 
 export type StoredReviewSession = {

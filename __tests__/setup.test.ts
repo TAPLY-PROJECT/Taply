@@ -19,6 +19,6 @@ describe("Backend Setup", () => {
     };
 
     expect(mockDesign.shareableId).toBe("abc123");
-    expect(typeof mockDesign.x).toBe("undefined");
+    expect("x" in mockDesign).toBe(false);
   });
 });
