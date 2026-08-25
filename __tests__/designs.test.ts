@@ -167,7 +167,6 @@ describe("POST /api/designs", () => {
         email: "test@taply.com",
       });
 
-      // ← UPDATED MOCK - now returns file AND fields
       (parseFormFile as jest.Mock).mockResolvedValueOnce({
         file: {
           buffer: Buffer.from("fake-image-data"),
@@ -195,13 +194,13 @@ describe("POST /api/designs", () => {
       const data = JSON.parse(res._getData());
       expect(data).toHaveProperty("id");
       expect(data).toHaveProperty("shareableId");
-      expect(data).toHaveProperty("name"); // ← ADDED
+      expect(data).toHaveProperty("name");
       expect(data).toHaveProperty("imageUrl");
       expect(data).toHaveProperty("createdAt");
 
       expect(data.id).toBe("mock-design-id-123");
       expect(data.shareableId).toBe("mock-shareable-id-xyz789");
-      expect(data.name).toBe("My Homepage Design"); // ← ADDED
+      expect(data.name).toBe("My Homepage Design");
       expect(data.imageUrl).toBe("https://res.cloudinary.com/test/image.jpg");
     });
 

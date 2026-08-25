@@ -43,7 +43,7 @@ export default async function handler(
       );
     }
 
-    const { designId, comment, x, y } = validation.data;
+    const { designId, comment, x, y, status } = validation.data;
 
     const designRef = adminDb.collection("designs").doc(designId);
     const designSnap = await designRef.get();
@@ -63,6 +63,7 @@ export default async function handler(
       x,
       y,
       createdAt: now,
+      status,
     };
 
     const feedbackRef = await designRef
@@ -75,6 +76,7 @@ export default async function handler(
       x,
       y,
       createdAt: now,
+      status,
     });
   } catch (error) {
     console.error("Feedback creation error:", error);

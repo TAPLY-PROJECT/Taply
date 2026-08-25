@@ -59,6 +59,7 @@ export default async function handler(
         x: data.x,
         y: data.y,
         createdAt: data.createdAt,
+        status: data.status || "needs_change",
       };
     });
 

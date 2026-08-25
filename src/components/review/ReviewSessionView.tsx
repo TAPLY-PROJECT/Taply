@@ -46,10 +46,12 @@ function FeedbackBadge({
   index,
   x,
   y,
+  status,
 }: {
   index: number;
   x: number;
   y: number;
+  status: FeedbackStatus;
 }) {
   return (
     <div
@@ -64,6 +66,15 @@ function FeedbackBadge({
       {index + 1}
     </div>
   );
+}
+
+function projectSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\'\"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "untitled-project";
 }
 
 export default function ReviewSessionView({
@@ -143,7 +154,7 @@ export default function ReviewSessionView({
         <Navbar
           variant="home"
           actionLabel="New Session"
-          actionHref={`/review/${shareableId}`}
+          actionHref="/workspace"
           actionIcon={<IconPlus size={12} stroke={2.4} />}
         />
         <div className="mx-auto flex min-h-[60vh] max-w-[1240px] items-center justify-center px-4">
@@ -159,7 +170,7 @@ export default function ReviewSessionView({
         <Navbar
           variant="home"
           actionLabel="New Session"
-          actionHref={`/review/${shareableId}`}
+          actionHref="/workspace"
           actionIcon={<IconPlus size={12} stroke={2.4} />}
         />
         <div className="mx-auto flex min-h-[60vh] max-w-[1240px] items-center justify-center px-4">
@@ -178,19 +189,19 @@ export default function ReviewSessionView({
     },
     {
       title: "Positive",
-      value: "0",
+      value: String(positiveCount),
       icon: <AssetIcon src={likeIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#dbe7ff]",
     },
     {
       title: "Needs Change",
-      value: "0",
+      value: String(needsChangeCount),
       icon: <AssetIcon src={dangerIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#f8dfe4]",
     },
     {
       title: "Resolved",
-      value: "0",
+      value: String(resolvedCount),
       icon: <AssetIcon src={tickCircleIcon} className="h-[42px] w-[42px]" />,
       tone: "bg-[#d9eee7]",
     },
@@ -201,7 +212,7 @@ export default function ReviewSessionView({
       <Navbar
         variant="home"
         actionLabel="New Session"
-        actionHref={`/review/${shareableId}`}
+        actionHref={projectRoute}
         actionIcon={<IconPlus size={12} stroke={2.4} />}
       />
 
@@ -209,7 +220,7 @@ export default function ReviewSessionView({
         <div className="mx-auto flex h-[76px] w-full max-w-[1240px] items-center justify-between px-4 xl:px-0">
           <div className="flex items-center gap-4">
             <Link
-              href={`/review/${shareableId}`}
+              href={projectRoute}
               aria-label="Back"
               className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-[8px] text-[#111111]"
             >
@@ -249,7 +260,7 @@ export default function ReviewSessionView({
             </button>
           </div>
 
-          <div className="mt-5 rounded-[12px] bg-[#b787ff] px-6 py-4 text-[14px] text-white/90">
+          <div className="mt-5 min-w-0 max-w-full overflow-hidden rounded-[12px] bg-[#b787ff] px-4 py-4 text-[13px] leading-6 text-white/90 break-all sm:px-6 sm:text-[14px]">
             {shareUrl}
           </div>
         </section>
@@ -347,9 +358,37 @@ export default function ReviewSessionView({
                       </article>
                     ))}
                   </div>
-                )}
-              </div>
-            </div>
+                  {orderedDesignFeedback.length === 0 ? (
+                    <p className="mt-4 text-[13px] text-[#7f7397]">No feedback has been submitted for this design yet.</p>
+                  ) : (
+                    <div className="mt-4 grid gap-3">
+                      {orderedDesignFeedback.map((itemFeedback, index) => (
+                        <article key={itemFeedback.id} className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-[13px] font-semibold text-[#6f2cf6]">
+                              Comment {index + 1}
+                              <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{getFeedbackStatus(itemFeedback.status, itemFeedback.id)}</span>
+                            </div>
+                            <p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{itemFeedback.comment}</p>
+                          </div>
+                          {getFeedbackStatus(itemFeedback.status, itemFeedback.id) !== "resolved" ? (
+                            <button
+                              type="button"
+                              disabled={updatingFeedbackId === itemFeedback.id}
+                              onClick={() => void updateFeedbackStatus(item.id, itemFeedback.id, "resolved")}
+                              className="shrink-0 rounded-full bg-[#d9eee7] px-3 py-1.5 text-[11px] font-medium text-[#16845b] disabled:opacity-50"
+                            >
+                              {updatingFeedbackId === itemFeedback.id ? "Saving..." : "Mark resolved"}
+                            </button>
+                          ) : null}
+                          <div className="shrink-0 text-right text-[11px] text-[#827896]"><div>{Math.round(itemFeedback.x * 100)}% x</div><div>{Math.round(itemFeedback.y * 100)}% y</div></div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -370,7 +409,10 @@ export default function ReviewSessionView({
                   className="flex items-start justify-between gap-4 rounded-[16px] border border-[#e3d6ff] bg-[#faf7ff] px-5 py-4 shadow-[0_8px_20px_rgba(26,15,54,0.06)]"
                 >
                   <div className="min-w-0">
-                    <div className="text-[14px] font-medium text-[#111111]">Feedback {index + 1}</div>
+                    <div className="flex items-center gap-2 text-[14px] font-medium text-[#111111]">
+                      Feedback {index + 1}
+                      <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{getFeedbackStatus(feedback.status, feedback.id)}</span>
+                    </div>
                     <p className="mt-1 text-[13px] leading-6 text-[#4d4d58]">{feedback.comment}</p>
                   </div>
                   <div className="shrink-0 text-right text-[12px] text-[#7b6f9b]">

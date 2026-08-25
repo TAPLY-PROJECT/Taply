@@ -19,7 +19,10 @@ export interface Feedback {
   x: number;
   y: number;
   createdAt: string;
+  status?: FeedbackStatus;
 }
+
+export type FeedbackStatus = "positive" | "needs_change" | "resolved";
 
 // API response formats
 // Frontend developers use these interfaces to handle API responses.
@@ -43,6 +46,7 @@ export interface CreateFeedbackResponse {
   x: number;
   y: number;
   createdAt: string;
+  status: FeedbackStatus;
 }
 
 export type ApiErrorCode =
@@ -62,4 +66,52 @@ export interface CreateFeedbackRequest {
   comment: string;
   x: number;
   y: number;
+}
+// ─── Admin Types ───
+
+export interface AdminDesign {
+  id: string;
+  shareableId: string;
+  name: string;
+  imageUrl: string;
+  publicId: string;
+  creatorUid: string;
+  createdAt: string;
+  feedbackCount: number;
+}
+
+export interface AdminFeedback {
+  id: string;
+  designId: string;
+  comment: string;
+  x: number;
+  y: number;
+  createdAt: string;
+}
+
+export interface AdminUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+  createdAt: string;
+  designCount: number;
+}
+
+export interface AdminStats {
+  totalDesigns: number;
+  totalFeedback: number;
+  totalUsers: number;
+  recentDesigns: AdminDesign[];
+  recentFeedback: AdminFeedback[];
+}
+
+export interface MakeAdminRequest {
+  uid: string;
+}
+
+export interface MakeAdminResponse {
+  success: boolean;
+  message: string;
+  uid: string;
 }

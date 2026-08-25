@@ -5,6 +5,7 @@ export const CreateFeedbackSchema = z.object({
   comment: z.string().trim().min(1, "comment cannot be empty").max(500, "comment must be 500 characters or less"),
   x: z.number().min(0, "x must be between 0 and 1").max(1, "x must be between 0 and 1"),
   y: z.number().min(0, "y must be between 0 and 1").max(1, "y must be between 0 and 1"),
+  status: z.enum(["positive", "needs_change"]).default("needs_change"),
 });
 
 export type CreateFeedbackInput = z.infer<typeof CreateFeedbackSchema>;

@@ -6,7 +6,6 @@ import { IconPlus, IconTrash } from "@tabler/icons-react";
 import Navbar from "@/components/layout/Navbar";
 import AssetIcon from "@/components/shared/AssetIcon";
 import ProjectHeaderBar from "@/components/workspace/ProjectHeaderBar";
-import ProjectSection from "@/components/workspace/ProjectSection";
 import ProjectStats from "@/components/workspace/ProjectStats";
 import CreateReviewSessionModal from "@/components/workspace/CreateReviewSessionModal";
 import UploadDesignModal from "@/components/workspace/UploadDesignModal";
@@ -16,6 +15,7 @@ import { writeStoredReviewSession } from "@/lib/review-session-storage";
 import type { StoredReviewDesign } from "@/lib/review-session-storage";
 import { useWorkspaceProjects } from "@/hooks/useWorkspaceProjects";
 import { useWorkspaceSessions } from "@/hooks/useWorkspaceSessions";
+import { useStoredReviewSessions } from "@/hooks/useStoredReviewSessions";
 import imageIcon from "../../public/Icon-assets/image.svg";
 import clipboardTextIcon from "../../public/Icon-assets/clipboard-text.svg";
 import directSendIcon from "../../public/Icon-assets/direct-send.svg";
@@ -106,8 +106,13 @@ export default function ReviewProjectView({
     [],
   );
   const router = useRouter();
-  const { addSession } = useWorkspaceSessions();
+  const { addSession, sessions } = useWorkspaceSessions();
+  const { sessions: storedReviewSessions } = useStoredReviewSessions();
   const { removeProjectBySlug } = useWorkspaceProjects();
+  const projectSessions = sessions.filter((session) => session.projectName === projectName);
+  const projectFeedbackCount = storedReviewSessions
+    .filter((session) => session.projectName === projectName)
+    .reduce((count, session) => count + session.feedback.length, 0);
 
   const stats = [
     {
@@ -117,13 +122,13 @@ export default function ReviewProjectView({
     },
     {
       label: "Review Sessions",
-      value: "0",
+      value: String(projectSessions.length),
       icon: clipboardTextIcon,
       iconClassName: "opacity-50 grayscale",
     },
     {
       label: "Unresolved Feedback",
-      value: "0",
+      value: String(projectFeedbackCount),
       icon: messageRemoveIcon,
     },
   ];
@@ -260,9 +265,6 @@ export default function ReviewProjectView({
 
   const sessionActionClassName =
     "inline-flex h-[48px] items-center gap-2 rounded-[11px] bg-[linear-gradient(180deg,#7a2bf8_0%,#6d20f5_100%)] px-[22px] text-[14px] font-semibold text-white transition hover:bg-[#6d20f5] disabled:cursor-not-allowed disabled:opacity-50";
-  const createSessionClassName =
-    "mt-[14px] inline-flex h-[34px] items-center gap-1.5 rounded-[8px] bg-[linear-gradient(180deg,#7a2bf8_0%,#6d20f5_100%)] px-[16px] text-[12px] font-medium leading-none text-white transition hover:bg-[#6d20f5] outline-none";
-
   return (
     <main className="min-h-screen bg-[#fbfbff] text-[#1c1340]">
       <Navbar variant="project" />
@@ -346,23 +348,54 @@ export default function ReviewProjectView({
           )}
         </section>
 
-        <ProjectSection
-          className="mt-[72px]"
-          title="Review Sessions"
-          actionLabel="New Session"
-          actionHref="/review/new"
-          actionLeadingIcon={<IconPlus size={16} stroke={2.2} className="text-white" />}
-          icon={reviewSessionIcon}
-          emptyTitle="No review sessions"
-          description="Upload designs first to create a review session"
-          actionClassName={sessionActionClassName}
-          actionDisabled={designs.length === 0}
-          showButton={designs.length > 0}
-          buttonLabel="Create Session"
-          buttonClassName={createSessionClassName}
-          actionOnClick={openSessionModal}
-          buttonOnClick={openSessionModal}
-        />
+        <section className="mt-[72px]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-[20px] font-medium text-[#0f0f16]">Review Sessions</h2>
+            <button
+              type="button"
+              onClick={openSessionModal}
+              disabled={designs.length === 0}
+              className={sessionActionClassName}
+            >
+              <IconPlus size={16} stroke={2.2} className="text-white" />
+              <span>Create Session</span>
+            </button>
+          </div>
+
+          {projectSessions.length === 0 ? (
+            <div className="mt-[18px] rounded-[13px] border-[2px] border-dashed border-[#7c43ff]/90 bg-[#faf8ff]">
+              <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[11px] text-center">
+                <AssetIcon src={reviewSessionIcon} className="h-[58px] w-[58px] opacity-70" />
+                <h3 className="mt-3 text-[16px] font-medium text-[#121212]">No review sessions</h3>
+                <p className="mt-2.5 max-w-[290px] text-[11px] text-[#818181]">
+                  Upload designs first to create a review session
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-[18px] grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {projectSessions.map((session) => (
+                <button
+                  key={`${session.shareableId}-${session.createdAt}`}
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      `/review/${session.shareableId}?view=session&name=${encodeURIComponent(projectName)}&description=${encodeURIComponent(projectDescription)}&sessionName=${encodeURIComponent(session.sessionName)}`,
+                    )
+                  }
+                  className="rounded-[13px] border border-[#e5daf8] bg-white p-5 text-left shadow-[0_10px_24px_rgba(26,15,54,0.06)] transition hover:-translate-y-0.5 hover:border-[#b892ff]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="truncate text-[16px] font-semibold text-[#17131f]">{session.sessionName}</h3>
+                    <span className="shrink-0 rounded-full bg-[#f1eaff] px-2 py-1 text-[10px] font-medium text-[#6f2cf6]">Open</span>
+                  </div>
+                  <p className="mt-3 text-[12px] text-[#827896]">{session.selectedDesignIds.length} design{session.selectedDesignIds.length === 1 ? "" : "s"}</p>
+                  <p className="mt-1 text-[11px] text-[#aaa2b5]">Created {new Date(session.createdAt).toLocaleDateString("en-US")}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       <CreateReviewSessionModal

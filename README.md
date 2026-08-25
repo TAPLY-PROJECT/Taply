@@ -314,7 +314,7 @@ NEXT_PUBLIC_API_URL=
 ## Clone Repository
 
 ```bash
-git clone https://github.com/your-username/taply.git
+git clone https://github.com/Mlue-Code/-Taply.git
 ```
 
 ```bash
@@ -437,5 +437,6 @@ Special thanks to the teams behind
 
 # Author
 
+- Homafar Sharifi (Team Leader | UI/UX designer)
 - Somaiya Noori (Backend developer)
 - Satayesh Esmaily (Frontend developer)

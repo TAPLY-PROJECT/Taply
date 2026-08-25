@@ -19,6 +19,7 @@ import messageAdd22Icon from "../../public/Icon-assets/message-add22.svg";
 type ClientReviewViewProps = {
   shareableId: string;
   sessionName?: string;
+  designShareableIds?: string[];
 };
 
 type DraftFeedback = {
@@ -49,6 +50,7 @@ type ReviewToolState = {
 };
 
 type ToolbarTool = "cursor" | "add" | "pin" | "pen" | "comment";
+type FeedbackStatus = "positive" | "needs_change";
 
 function ToolButton({
   icon,
@@ -67,7 +69,7 @@ function ToolButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-[56px] items-center justify-center gap-1 rounded-[14px] px-4 transition ${
+      className={`inline-flex h-12 shrink-0 items-center justify-center gap-1 rounded-[14px] px-2 transition sm:h-[56px] sm:px-4 ${
         active ? "bg-[#efe7ff] text-[#6f2cf6]" : "text-[#6f2cf6] hover:bg-[#f3edff]"
       }`}
       aria-label={label}
@@ -98,10 +100,10 @@ function makeId() {
   return globalThis.crypto?.randomUUID?.() ?? `tool-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export default function ClientReviewView({ shareableId, sessionName }: ClientReviewViewProps) {
-  const [designs, setDesigns] = useState<StoredReviewDesign[]>([]);
+export default function ClientReviewView({ shareableId, sessionName, designShareableIds = [] }: ClientReviewViewProps) {
+  const [designs, setDesigns] = useState<ReviewDesign[]>([]);
   const [selectedDesignIndex, setSelectedDesignIndex] = useState(0);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [feedbackByDesign, setFeedbackByDesign] = useState<Record<string, Feedback[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState(sessionName || "Session Name");
@@ -114,6 +116,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     comment: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState<FeedbackStatus>("needs_change");
   const { setValue: setToolState, value: toolState } = usePersistentState<ReviewToolState>(
     `taply-review-tools:${shareableId}`,
     { pins: [], strokes: [] },
@@ -125,6 +128,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     designs.length > 0 ? selectedDesignIndex % designs.length : 0;
   const currentDesign = designs[safeSelectedDesignIndex] ?? designs[0] ?? null;
   const currentDesignShareableId = currentDesign?.shareableId;
+  const feedback = currentDesign ? feedbackByDesign[currentDesign.id] ?? [] : [];
   const orderedFeedback = [...feedback].reverse();
 
   useEffect(() => {
@@ -135,10 +139,6 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         const storedSession = readStoredReviewSession(shareableId);
 
         if (storedSession?.designs?.length) {
-          if (!active) {
-            return;
-          }
-
           setDesigns(
             storedSession.designs.map((item) => ({
               id: item.id,
@@ -150,41 +150,55 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
             })),
           );
           setSelectedDesignIndex(0);
-          setFeedback(storedSession.feedback ?? []);
-
-          if (sessionName) {
-            setSessionTitle(sessionName);
+          const primaryDesignId = storedSession.designs[0]?.id;
+          if (primaryDesignId) {
+            setFeedbackByDesign((current) => ({
+              ...current,
+              [primaryDesignId]: storedSession.feedback ?? [],
+            }));
           }
-          return;
         }
 
-        const response = await fetch(`/api/designs/${encodeURIComponent(shareableId)}`);
-        const result = (await response.json()) as GetDesignResponse & { message?: string };
-
-        if (!response.ok) {
-          throw new Error(result.message || "Failed to load design");
-        }
+        const idsToLoad = Array.from(new Set([shareableId, ...designShareableIds]));
+        const results = await Promise.all(
+          idsToLoad.map(async (designShareableId) => {
+            const response = await fetch(`/api/designs/${encodeURIComponent(designShareableId)}`);
+            const result = (await response.json()) as GetDesignResponse & { message?: string };
+            if (!response.ok) {
+              throw new Error(result.message || "Failed to load design");
+            }
+            return result;
+          }),
+        );
+        const primaryResult = results.find((result) => result.design.shareableId === shareableId) ?? results[0];
 
         if (!active) {
           return;
         }
 
-        setDesigns([
-          {
-            id: result.design.id,
-            shareableId: result.design.shareableId,
-            name: result.design.name,
-            uploadedAt: result.design.createdAt,
-            previewUrl: result.design.imageUrl,
-            imageUrl: result.design.imageUrl,
-          },
-        ]);
-        setFeedback(result.feedback);
+        if (!storedSession?.designs?.length) {
+          setDesigns(
+            results.map(({ design }) => ({
+              id: design.id,
+              shareableId: design.shareableId,
+              name: design.name || design.shareableId,
+              uploadedAt: design.createdAt,
+              previewUrl: design.imageUrl,
+              imageUrl: design.imageUrl,
+            })),
+          );
+        }
+        setFeedbackByDesign((current) =>
+          results.reduce(
+            (next, result) => ({ ...next, [result.design.id]: result.feedback }),
+            current,
+          ),
+        );
         updateStoredReviewSession(shareableId, (current) =>
           current
             ? {
                 ...current,
-                feedback: result.feedback,
+                feedback: primaryResult.feedback,
               }
             : current,
         );
@@ -208,7 +222,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
     return () => {
       active = false;
     };
-  }, [sessionName, shareableId]);
+  }, [designShareableIds, sessionName, shareableId]);
 
   useEffect(() => {
     if (!currentDesignShareableId) {
@@ -227,21 +241,31 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         }
 
         if (active) {
-          setFeedback(result.feedback);
+          setFeedbackByDesign((current) => ({
+            ...current,
+            [currentDesign.id]: result.feedback,
+          }));
         }
       } catch {
         if (active) {
-          setFeedback([]);
+          setFeedbackByDesign((current) => ({
+            ...current,
+            [currentDesign.id]: [],
+          }));
         }
       }
     };
 
     void loadFeedback();
+    const refreshInterval = window.setInterval(() => {
+      void loadFeedback();
+    }, 4000);
 
     return () => {
       active = false;
+      window.clearInterval(refreshInterval);
     };
-  }, [currentDesignShareableId]);
+  }, [currentDesign?.id, currentDesignShareableId]);
 
   const getRelativePoint = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -369,12 +393,16 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
       x: draft.x,
       y: draft.y,
       createdAt: new Date().toISOString(),
+      status: feedbackStatus,
     };
 
     setSubmitting(true);
     setError(null);
 
-    setFeedback((current) => [optimisticFeedback, ...current]);
+    setFeedbackByDesign((current) => ({
+      ...current,
+      [currentDesign.id]: [optimisticFeedback, ...(current[currentDesign.id] ?? [])],
+    }));
     updateStoredReviewSession(shareableId, (current) =>
       current
         ? {
@@ -395,6 +423,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
           comment: draft.comment.trim(),
           x: draft.x,
           y: draft.y,
+          status: feedbackStatus,
         }),
       });
 
@@ -409,11 +438,15 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
         x: result.x,
         y: result.y,
         createdAt: result.createdAt,
+        status: result.status || feedbackStatus,
       };
 
-      setFeedback((current) =>
-        current.map((item) => (item.id === optimisticFeedback.id ? createdFeedback : item)),
-      );
+      setFeedbackByDesign((current) => ({
+        ...current,
+        [currentDesign.id]: (current[currentDesign.id] ?? []).map((item) =>
+          item.id === optimisticFeedback.id ? createdFeedback : item,
+        ),
+      }));
       updateStoredReviewSession(shareableId, (current) =>
         current
           ? {
@@ -609,7 +642,10 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
                         top: `calc(${percent(item.y)} - 12px)`,
                       }}
                     >
-                      <div className="text-[12px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div>
+                      <div className="flex items-center gap-2 text-[12px] font-semibold text-[#6f2cf6]">
+                        Comment {index + 1}
+                        <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{item.status || "needs_change"}</span>
+                      </div>
                       <p className="mt-1 text-[13px] leading-5 text-[#1a1722]">{item.comment}</p>
                     </div>
                   ) : null}
@@ -618,7 +654,7 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
 
               <div
                 data-toolbar-root="true"
-                className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-[14px] bg-[#f2ebff] px-5 py-4 shadow-[0_12px_24px_rgba(24,18,47,0.14)]"
+                  className="absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-16px)] -translate-x-1/2 flex-nowrap items-center gap-1 overflow-x-auto rounded-[14px] bg-[#f2ebff] px-2 py-2 shadow-[0_12px_24px_rgba(24,18,47,0.14)] sm:bottom-5 sm:gap-2 sm:px-5 sm:py-4"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
@@ -718,7 +754,10 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
                   className="flex items-start justify-between gap-4 rounded-[14px] bg-[#faf7ff] px-4 py-3"
                 >
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-[#6f2cf6]">Comment {index + 1}</div>
+                    <div className="flex items-center gap-2 text-[13px] font-semibold text-[#6f2cf6]">
+                      Comment {index + 1}
+                      <span className="rounded-full bg-[#f3f0f7] px-2 py-0.5 text-[10px] text-[#6f2cf6]">{item.status || "needs_change"}</span>
+                    </div>
                     <p className="mt-1 text-[14px] leading-6 text-[#1a1722]">{item.comment}</p>
                   </div>
                   <div className="shrink-0 text-right text-[11px] text-[#827896]">
@@ -761,6 +800,23 @@ export default function ClientReviewView({ shareableId, sessionName }: ClientRev
             <p className="mt-2 text-[12px] text-[#818181]">
               {Math.round(draft.x * 100)}% x, {Math.round(draft.y * 100)}% y
             </p>
+
+            <div className="mt-4 flex gap-2" role="group" aria-label="Feedback status">
+              <button
+                type="button"
+                onClick={() => setFeedbackStatus("positive")}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${feedbackStatus === "positive" ? "bg-[#d9eee7] text-[#16845b]" : "bg-[#f3f0f7] text-[#7f7397]"}`}
+              >
+                Positive
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedbackStatus("needs_change")}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${feedbackStatus === "needs_change" ? "bg-[#f8dfe4] text-[#b42318]" : "bg-[#f3f0f7] text-[#7f7397]"}`}
+              >
+                Needs change
+              </button>
+            </div>
 
             <textarea
               value={draft.comment}
