@@ -16,12 +16,13 @@ import { writeStoredReviewSession } from "@/lib/review-session-storage";
 import { useWorkspaceProjects } from "@/hooks/useWorkspaceProjects";
 import { useWorkspaceSessions } from "@/hooks/useWorkspaceSessions";
 import { useStoredReviewSessions } from "@/hooks/useStoredReviewSessions";
-import imageIcon from "../../../public/Icon-assets/image.svg";
-import clipboardTextIcon from "../../../public/Icon-assets/clipboard-text.svg";
-import directSendIcon from "../../../public/Icon-assets/direct-send.svg";
-import sendIcon from "../../../public/Icon-assets/send.svg";
-import messageRemoveIcon from "../../../public/Icon-assets/message-remove.svg";
-import reviewSessionIcon from "../../../public/Icon-assets/review session.svg";
+
+import imageIcon from "../../public/Icon-assets/image.svg";
+import clipboardTextIcon from "../../public/Icon-assets/clipboard-text.svg";
+import directSendIcon from "../../public/Icon-assets/direct-send.svg";
+import sendIcon from "../../public/Icon-assets/send.svg";
+import messageRemoveIcon from "../../public/Icon-assets/message-remove.svg";
+import reviewSessionIcon from "../../public/Icon-assets/review session.svg";
 
 type ReviewProjectViewProps = {
   projectId: string;

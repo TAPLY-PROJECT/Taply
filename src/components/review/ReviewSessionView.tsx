@@ -9,11 +9,12 @@ import { useReviewSession } from "@/hooks/useReviewSession";
 import { getValidIdToken } from "@/lib/firebase-client";
 import { getDevIdToken } from "@/lib/dev-auth";
 import type { FeedbackStatus } from "@/types/taply";
-import messages3Icon from "../../../public/Icon-assets/messages-3.svg";
-import likeIcon from "../../../public/Icon-assets/like.svg";
-import dangerIcon from "../../../public/Icon-assets/danger.svg";
-import tickCircleIcon from "../../../public/Icon-assets/tick-circle.svg";
-import infoCircleIcon from "../../../public/Icon-assets/info-circle.svg";
+
+import messages3Icon from "../../public/Icon-assets/messages-3.svg";
+import likeIcon from "../../public/Icon-assets/like.svg";
+import dangerIcon from "../../public/Icon-assets/danger.svg";
+import tickCircleIcon from "../../public/Icon-assets/tick-circle.svg";
+import infoCircleIcon from "../../public/Icon-assets/info-circle.svg";
 
 type ReviewSessionViewProps = {
   shareableId: string;
