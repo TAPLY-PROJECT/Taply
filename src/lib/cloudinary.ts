@@ -21,11 +21,7 @@ cloudinary.config({
 export default cloudinary;
 
 /**
- * Uploads an image to Cloudinary.
- *
- * @param fileBuffer - The image file as a Buffer.
- * @param folder - The destination folder in Cloudinary (e.g., 'taply/designs').
- * @returns The uploaded image information.
+ * Uploads an image buffer to Cloudinary.
  */
 export async function uploadImage(
   fileBuffer: Buffer,
@@ -62,8 +58,6 @@ export async function uploadImage(
 
 /**
  * Deletes an image from Cloudinary.
- *
- * @param publicId - The Cloudinary public ID of the image to delete.
  */
 export async function deleteImage(publicId: string): Promise<void> {
   await cloudinary.uploader.destroy(publicId);

@@ -2,10 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendError, allowMethod } from "@/utils/api-helpers";
 import type {
-  Design,
-  Feedback,
   GetDesignResponse,
   ApiErrorResponse,
+  Feedback,
 } from "@/types/taply";
 
 export default async function handler(
@@ -14,19 +13,20 @@ export default async function handler(
 ) {
   if (!allowMethod(req.method, "GET", res)) return;
 
-  try {
-    const { shareableId } = req.query;
+  const { shareableId } = req.query;
 
-    if (!shareableId || typeof shareableId !== "string") {
-      return sendError(res, 400, "VALIDATION_ERROR", "shareableId is required");
-    }
-    const designsRef = adminDb.collection("designs");
-    const querySnapshot = await designsRef
+  if (!shareableId || typeof shareableId !== "string") {
+    return sendError(res, 400, "VALIDATION_ERROR", "shareableId is required");
+  }
+
+  try {
+    const snapshot = await adminDb
+      .collection("designs")
       .where("shareableId", "==", shareableId)
       .limit(1)
       .get();
 
-    if (querySnapshot.empty) {
+    if (snapshot.empty) {
       return sendError(
         res,
         404,
@@ -35,40 +35,40 @@ export default async function handler(
       );
     }
 
-    const designDoc = querySnapshot.docs[0];
-    const designData = designDoc.data();
-    const design: Design = {
-      id: designDoc.id,
-      shareableId: designData.shareableId,
-      name: designData.name || "Untitled Design",
-      imageUrl: designData.imageUrl,
-      publicId: designData.publicId,
-      creatorUid: designData.creatorUid,
-      createdAt: designData.createdAt,
-    };
+    const doc = snapshot.docs[0];
+    const data = doc.data();
 
-    const feedbackSnapshot = await designDoc.ref
+    const feedbackSnapshot = await doc.ref
       .collection("feedback")
       .orderBy("createdAt", "desc")
       .get();
-    const feedback: Feedback[] = feedbackSnapshot.docs.map((doc) => {
-      const data = doc.data();
+
+    const feedback: Feedback[] = feedbackSnapshot.docs.map((fbDoc) => {
+      const fbData = fbDoc.data();
       return {
-        id: doc.id,
-        comment: data.comment,
-        x: data.x,
-        y: data.y,
-        createdAt: data.createdAt,
-        status: data.status || "needs_change",
+        id: fbDoc.id,
+        comment: fbData.comment,
+        x: fbData.x,
+        y: fbData.y,
+        createdAt: fbData.createdAt,
+        status: fbData.status,
       };
     });
 
     return res.status(200).json({
-      design,
+      design: {
+        id: doc.id,
+        shareableId: data.shareableId,
+        name: data.name || "Untitled Design",
+        imageUrl: data.imageUrl,
+        publicId: data.publicId,
+        creatorUid: data.creatorUid,
+        createdAt: data.createdAt,
+      },
       feedback,
     });
   } catch (error) {
-    console.error("Error fetching design:", error);
+    console.error("Get design error:", error);
     return sendError(res, 500, "INTERNAL_ERROR", "Failed to fetch design");
   }
 }

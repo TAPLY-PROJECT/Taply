@@ -4,21 +4,25 @@ import { adminDb } from "@/lib/firebase-admin";
 import { uploadImage } from "@/lib/cloudinary";
 import { verifyAuth } from "@/lib/auth";
 import { parseFormFile } from "@/lib/parse-form";
-import { sendError, allowMethod } from "@/utils/api-helpers";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { sendError, allowMethod } from "@/utils/api-helpers";
 import type { UploadDesignResponse, ApiErrorResponse } from "@/types/taply";
 
+// Disable Next.js body parser to allow formidable to handle multipart stream
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Rate limit: 20 uploads per hour per IP
-const UPLOAD_RATE_LIMIT = {
+const DESIGN_UPLOAD_LIMIT = {
   maxRequests: 20,
-  windowMs: 60 * 60 * 1000,
+  windowMs: 60 * 60 * 1000, // 20 designs per hour per IP
 };
+
+function stripExtension(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, "");
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -26,80 +30,74 @@ export default async function handler(
 ) {
   if (!allowMethod(req.method, "POST", res)) return;
 
-  // ─── Rate Limiting ───
+  // Rate Limiting
   const ip = getClientIp(req);
-  const rateLimitResult = checkRateLimit(ip, UPLOAD_RATE_LIMIT);
+  const rateLimit = checkRateLimit(ip, DESIGN_UPLOAD_LIMIT);
 
-  if (!rateLimitResult.allowed) {
+  if (!rateLimit.allowed) {
     res.setHeader("Retry-After", "3600");
     return sendError(
       res,
       429,
       "INTERNAL_ERROR",
-      "Too many uploads. Please wait before uploading again.",
+      "Upload rate limit exceeded. Please try again later.",
+    );
+  }
+
+  // Authentication
+  const auth = await verifyAuth(req);
+  if (!auth.success || !auth.uid) {
+    return sendError(
+      res,
+      401,
+      "UNAUTHORIZED",
+      auth.error || "Authentication required to upload designs.",
     );
   }
 
   try {
-    // ─── Authentication ───
-    const auth = await verifyAuth(req);
-    if (!auth.success || !auth.uid) {
-      return sendError(
-        res,
-        401,
-        "UNAUTHORIZED",
-        auth.error || "Authentication required",
-      );
-    }
-
-    // ─── Parse Form (file + fields) ───
-    let parsedForm;
-    try {
-      parsedForm = await parseFormFile(req);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid file";
-      return sendError(res, 400, "VALIDATION_ERROR", message);
-    }
-
-    // ─── Get Name from Fields ───
-    // Use the name sent by frontend, fallback to original filename
-    const designName =
-      parsedForm.fields.name?.trim() ||
-      parsedForm.file.fileName.replace(/\.[^.]+$/, "") ||
-      "Untitled Design";
-
-    let uploadResult;
-    try {
-      uploadResult = await uploadImage(parsedForm.file.buffer, "taply/designs");
-    } catch (error) {
-      console.error("Cloudinary upload failed:", error);
-      return sendError(res, 500, "INTERNAL_ERROR", "Failed to upload image");
-    }
+    const { file, fields } = await parseFormFile(req);
+    const { url, publicId } = await uploadImage(file.buffer);
 
     const shareableId = createId();
+    const name =
+      fields.name?.trim() || stripExtension(file.fileName) || "Untitled Design";
     const now = new Date().toISOString();
 
-    const designData = {
+    const docRef = await adminDb.collection("designs").add({
       shareableId,
-      name: designName,
-      imageUrl: uploadResult.url,
-      publicId: uploadResult.publicId,
+      name,
+      imageUrl: url,
+      publicId,
       creatorUid: auth.uid,
       createdAt: now,
-    };
+    });
 
-    const docRef = await adminDb.collection("designs").add(designData);
-
-    // ─── Return Response ───
     return res.status(201).json({
       id: docRef.id,
       shareableId,
-      name: designName,
-      imageUrl: uploadResult.url,
+      name,
+      imageUrl: url,
       createdAt: now,
     });
   } catch (error) {
-    console.error("Unexpected error:", error);
-    return sendError(res, 500, "INTERNAL_ERROR", "Something went wrong");
+    console.error("Design upload error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to upload design";
+
+    if (
+      message.includes("No image file") ||
+      message.includes("Only image files") ||
+      message.includes("maxFileSize")
+    ) {
+      return sendError(res, 400, "VALIDATION_ERROR", message);
+    }
+
+    return sendError(
+      res,
+      500,
+      "INTERNAL_ERROR",
+      "An unexpected error occurred during upload.",
+    );
   }
 }

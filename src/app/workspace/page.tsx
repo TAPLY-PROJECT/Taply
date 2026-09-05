@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -61,7 +61,9 @@ export default function WorkspacePage() {
           onNewProjectClick={() => setIsModalOpen(true)}
           onProjectClick={(project) => router.push(project.reviewUrl)}
           onDeleteProject={(project) => {
-            const confirmed = window.confirm(`Delete project "${project.name}"? This will remove its saved designs and sessions from this browser.`);
+            const confirmed = window.confirm(
+              `Delete project "${project.name}"? This will remove its saved designs and sessions from this browser.`,
+            );
 
             if (!confirmed) {
               return;
